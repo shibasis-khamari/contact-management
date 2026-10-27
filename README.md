@@ -129,6 +129,16 @@ Before running the project locally or deploying, ensure you have:
 3. Add environment variable `MONGODB_URI` under **Settings > Environment Variables**.
 4. Deploy! Vercel will automatically use `vercel.json` and build the serverless app.
 
+### Option 3: Publish the frontend on GitHub Pages
+
+The included `.github/workflows/github-pages.yml` workflow publishes the `public/` folder whenever changes are pushed to `main` or `master`.
+
+1. Push the repository to GitHub.
+2. In the repository, open **Settings > Pages** and set the source to **GitHub Actions**.
+3. Open the **Actions** tab and wait for **Deploy static site to GitHub Pages** to finish. The published URL will appear in the workflow run and under **Settings > Pages**.
+
+GitHub Pages hosts only the frontend, so this version saves contacts in the current browser's local storage. Contacts are not shared between visitors or devices, and clearing that browser's site data removes them. Use the Render or Vercel deployment above with MongoDB when you need shared, persistent contacts backed by the API.
+
 ---
 
 ## 📡 API Reference

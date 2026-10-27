@@ -16,8 +16,49 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // --- API CLIENT ---
+  const isStaticHosting = window.location.protocol === 'file:'
+    || window.location.hostname === 'github.io'
+    || window.location.hostname.endsWith('.github.io');
+  const storageKey = 'contacthub.contacts.v1';
+
+  function readStoredContacts() {
+    try {
+      return JSON.parse(localStorage.getItem(storageKey) || '[]');
+    } catch (err) {
+      console.error('Unable to read saved contacts', err);
+      return [];
+    }
+  }
+
+  function saveStoredContacts(contacts) {
+    localStorage.setItem(storageKey, JSON.stringify(contacts));
+  }
+
   const API = {
     async getContacts() {
+      if (isStaticHosting) {
+        let contacts = readStoredContacts();
+        const search = state.searchQuery.trim().toLowerCase();
+        if (search) {
+          contacts = contacts.filter(contact =>
+            [contact.name, contact.email, contact.phone, contact.notes]
+              .some(value => (value || '').toLowerCase().includes(search))
+          );
+        }
+        if (state.activeCategory === 'Favorite') {
+          contacts = contacts.filter(contact => contact.is_favorite);
+        } else if (state.activeCategory !== 'All') {
+          contacts = contacts.filter(contact => contact.category === state.activeCategory);
+        }
+        contacts.sort((a, b) => {
+          if (state.sortOrder === 'name_desc') return b.name.localeCompare(a.name);
+          if (state.sortOrder === 'date_asc') return new Date(a.created_at) - new Date(b.created_at);
+          if (state.sortOrder === 'date_desc') return new Date(b.created_at) - new Date(a.created_at);
+          return a.name.localeCompare(b.name);
+        });
+        return { success: true, data: contacts };
+      }
+
       const params = new URLSearchParams();
       if (state.searchQuery) params.append('search', state.searchQuery);
       if (state.activeCategory === 'Favorite') {
@@ -32,16 +73,50 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async getStats() {
+      if (isStaticHosting) {
+        const contacts = readStoredContacts();
+        return {
+          success: true,
+          data: {
+            total: contacts.length,
+            favorites: contacts.filter(contact => contact.is_favorite).length,
+            categories: contacts.reduce((counts, contact) => {
+              counts[contact.category] = (counts[contact.category] || 0) + 1;
+              return counts;
+            }, {})
+          }
+        };
+      }
+
       const res = await fetch('/api/contacts/stats');
       return await res.json();
     },
 
     async getContactById(id) {
+      if (isStaticHosting) {
+        const contact = readStoredContacts().find(item => item.id === id);
+        return contact
+          ? { success: true, data: contact }
+          : { success: false, error: 'Contact not found' };
+      }
+
       const res = await fetch(`/api/contacts/${id}`);
       return await res.json();
     },
 
     async createContact(data) {
+      if (isStaticHosting) {
+        const contacts = readStoredContacts();
+        const contact = {
+          ...data,
+          id: window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          created_at: new Date().toISOString()
+        };
+        contacts.push(contact);
+        saveStoredContacts(contacts);
+        return { success: true, data: contact };
+      }
+
       const res = await fetch('/api/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,6 +126,15 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async updateContact(id, data) {
+      if (isStaticHosting) {
+        const contacts = readStoredContacts();
+        const index = contacts.findIndex(contact => contact.id === id);
+        if (index < 0) return { success: false, error: 'Contact not found' };
+        contacts[index] = { ...contacts[index], ...data };
+        saveStoredContacts(contacts);
+        return { success: true, data: contacts[index] };
+      }
+
       const res = await fetch(`/api/contacts/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -60,6 +144,15 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async toggleFavorite(id) {
+      if (isStaticHosting) {
+        const contacts = readStoredContacts();
+        const contact = contacts.find(item => item.id === id);
+        if (!contact) return { success: false, error: 'Contact not found' };
+        contact.is_favorite = !contact.is_favorite;
+        saveStoredContacts(contacts);
+        return { success: true, data: contact };
+      }
+
       const res = await fetch(`/api/contacts/${id}/favorite`, {
         method: 'PATCH'
       });
@@ -67,6 +160,16 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async deleteContact(id) {
+      if (isStaticHosting) {
+        const contacts = readStoredContacts();
+        const remaining = contacts.filter(contact => contact.id !== id);
+        if (remaining.length === contacts.length) {
+          return { success: false, error: 'Contact not found' };
+        }
+        saveStoredContacts(remaining);
+        return { success: true, deletedId: id };
+      }
+
       const res = await fetch(`/api/contacts/${id}`, {
         method: 'DELETE'
       });
@@ -544,6 +647,38 @@ document.addEventListener('DOMContentLoaded', () => {
   DOM.exportBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     DOM.exportDropdown.parentElement.classList.toggle('active');
+  });
+
+  DOM.exportDropdown.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', event => {
+      if (!isStaticHosting) return;
+      event.preventDefault();
+
+      const format = new URL(link.href).searchParams.get('format');
+      const contacts = readStoredContacts().sort((a, b) => a.name.localeCompare(b.name));
+      const content = format === 'csv'
+        ? [
+            ['ID', 'Name', 'Email', 'Phone', 'Category', 'Favorite', 'Notes', 'Created At'],
+            ...contacts.map(contact => [
+              contact.id,
+              contact.name,
+              contact.email,
+              contact.phone,
+              contact.category,
+              contact.is_favorite ? 'Yes' : 'No',
+              contact.notes,
+              contact.created_at
+            ])
+          ].map(row => row.map(value => `"${String(value || '').replace(/"/g, '""')}"`).join(',')).join('\n')
+        : JSON.stringify(contacts, null, 2);
+      const mimeType = format === 'csv' ? 'text/csv' : 'application/json';
+      const downloadUrl = URL.createObjectURL(new Blob([content], { type: `${mimeType};charset=utf-8` }));
+      const downloadLink = document.createElement('a');
+      downloadLink.href = downloadUrl;
+      downloadLink.download = format === 'csv' ? 'contacts.csv' : 'contacts.json';
+      downloadLink.click();
+      URL.revokeObjectURL(downloadUrl);
+    });
   });
 
   document.addEventListener('click', () => {
