@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ContactHub | Your private address book</title>
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Application Container -->
+  <div class="app-container">
+    
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-icon">
+          <i class="fa-solid fa-address-book"></i>
+        </div>
+        <div class="logo-text">
+          <h1>ContactHub</h1>
+          <p>Contact Management System</p>
+        </div>
+      </div>
+
+      <div class="header-stats">
+        <div class="stat-badge">
+          <i class="fa-solid fa-users"></i>
+          <span>Total: <strong id="statTotal">0</strong></span>
+        </div>
+        <div class="stat-badge favorite">
+          <i class="fa-solid fa-star"></i>
+          <span>Favorites: <strong id="statFav">0</strong></span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="dropdown">
+          <button class="btn btn-secondary dropdown-toggle" id="exportBtn" title="Export Contacts">
+            <i class="fa-solid fa-download"></i> Export
+          </button>
+          <div class="dropdown-menu" id="exportDropdown">
+            <a href="/api/contacts/export?format=json" download="contacts.json" class="dropdown-item">
+              <i class="fa-solid fa-file-code"></i> Export as JSON
+            </a>
+            <a href="/api/contacts/export?format=csv" download="contacts.csv" class="dropdown-item">
+              <i class="fa-solid fa-file-csv"></i> Export as CSV
+            </a>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="openAddModalBtn">
+          <i class="fa-solid fa-user-plus"></i> Add Contact
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Toolbar (Search, Filter, Sort, View Toggle) -->
+    <section class="toolbar">
+      <!-- Search Input -->
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="searchInput" placeholder="Search contacts by name, email, phone..." autocomplete="off">
+        <button id="clearSearchBtn" class="clear-search-btn hidden" title="Clear Search">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="category-pills" id="categoryPills">
+        <button class="pill active" data-category="All">All</button>
+        <button class="pill" data-category="Personal"><i class="fa-solid fa-house"></i> Personal</button>
+        <button class="pill" data-category="Work"><i class="fa-solid fa-briefcase"></i> Work</button>
+        <button class="pill" data-category="Family"><i class="fa-solid fa-heart"></i> Family</button>
+        <button class="pill" data-category="Other"><i class="fa-solid fa-tag"></i> Other</button>
+        <button class="pill pill-star" data-category="Favorite"><i class="fa-solid fa-star"></i> Starred</button>
+      </div>
+
+      <!-- Sort & View Controls -->
+      <div class="toolbar-controls">
+        <div class="select-wrapper">
+          <select id="sortSelect" title="Sort Contacts">
+            <option value="name_asc">Name (A &rarr; Z)</option>
+            <option value="name_desc">Name (Z &rarr; A)</option>
+            <option value="date_desc">Newest First</option>
+            <option value="date_asc">Oldest First</option>
+          </select>
+        </div>
+
+        <div class="view-toggle">
+          <button id="gridViewBtn" class="view-btn active" title="Grid View">
+            <i class="fa-solid fa-border-all"></i>
+          </button>
+          <button id="listViewBtn" class="view-btn" title="List View">
+            <i class="fa-solid fa-list"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Loading State -->
+      <div id="loadingState" class="state-container hidden">
+        <div class="spinner"></div>
+        <p>Loading contacts...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="state-container hidden">
+        <div class="empty-icon">
+          <i class="fa-solid fa-address-book"></i>
+        </div>
+        <h3>No contacts found</h3>
+        <p id="emptyMessage">Get started by creating your first contact or clearing your search filter.</p>
+        <button class="btn btn-primary btn-sm" id="emptyAddBtn">
+          <i class="fa-solid fa-plus"></i> Add New Contact
+        </button>
+      </div>
+
+      <!-- Contact Container (Grid / List) -->
+      <div id="contactsContainer" class="contacts-grid"></div>
+    </main>
+
+  </div>
+
+  <!-- MODAL: Add / Edit Contact -->
+  <div class="modal-overlay hidden" id="contactModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modalTitle"><i class="fa-solid fa-user-plus"></i> Add New Contact</h2>
+        <button class="modal-close" id="closeModalBtn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="contactForm" novalidate>
+        <input type="hidden" id="contactId">
+
+        <div class="form-group">
+          <label for="contactName">Full Name <span class="required">*</span></label>
+          <div class="input-with-icon">
+            <i class="fa-solid fa-user"></i>
+            <input type="text" id="contactName" placeholder="e.g. John Doe" required>
+          </div>
+          <span class="field-error" id="nameError"></span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="contactPhone">Phone Number <span class="required">*</span></label>
+            <div class="input-with-icon">
+              <i class="fa-solid fa-phone"></i>
+              <input type="tel" id="contactPhone" placeholder="e.g. +1 (555) 019-2834" required>
+            </div>
+            <span class="field-error" id="phoneError"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="contactEmail">Email Address</label>
+            <div class="input-with-icon">
+              <i class="fa-solid fa-envelope"></i>
+              <input type="email" id="contactEmail" placeholder="e.g. john@example.com">
+            </div>
+            <span class="field-error" id="emailError"></span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="contactCategory">Category</label>
+            <div class="input-with-icon">
+              <i class="fa-solid fa-folder"></i>
+              <select id="contactCategory">
+                <option value="Personal">Personal</option>
+                <option value="Work">Work</option>
+                <option value="Family">Family</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="contactFavorite">
+              <span class="checkbox-custom"></span>
+              <span>Mark as Favorite <i class="fa-solid fa-star star-icon"></i></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="contactNotes">Notes / Description</label>
+          <div class="input-with-icon textarea-icon">
+            <i class="fa-solid fa-note-sticky"></i>
+            <textarea id="contactNotes" rows="3" placeholder="Add additional details, company, address..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelFormBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveContactBtn">
+            <i class="fa-solid fa-check"></i> Save Contact
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: View Details -->
+  <div class="modal-overlay hidden" id="viewModal">
+    <div class="modal-card modal-view-card">
+      <div class="modal-header border-none">
+        <div></div>
+        <button class="modal-close" id="closeViewModalBtn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="view-contact-body">
+        <div class="view-avatar-wrapper">
+          <div class="view-avatar" id="viewAvatar">JD</div>
+          <button class="star-btn-large" id="viewStarBtn" title="Toggle Favorite">
+            <i class="fa-regular fa-star"></i>
+          </button>
+        </div>
+
+        <h2 id="viewName">John Doe</h2>
+        <span class="category-badge" id="viewCategory">Personal</span>
+
+        <div class="quick-action-bar">
+          <a href="#" id="viewCallLink" class="action-circle" title="Call">
+            <i class="fa-solid fa-phone"></i>
+            <span>Call</span>
+          </a>
+          <a href="#" id="viewEmailLink" class="action-circle" title="Email">
+            <i class="fa-solid fa-envelope"></i>
+            <span>Email</span>
+          </a>
+        </div>
+
+        <div class="view-detail-list">
+          <div class="view-detail-item">
+            <div class="detail-icon"><i class="fa-solid fa-phone"></i></div>
+            <div class="detail-content">
+              <span class="detail-label">Phone</span>
+              <span class="detail-value" id="viewPhone">+1 (555) 000-0000</span>
+            </div>
+          </div>
+
+          <div class="view-detail-item">
+            <div class="detail-icon"><i class="fa-solid fa-envelope"></i></div>
+            <div class="detail-content">
+              <span class="detail-label">Email</span>
+              <span class="detail-value" id="viewEmail">john@example.com</span>
+            </div>
+          </div>
+
+          <div class="view-detail-item" id="viewNotesContainer">
+            <div class="detail-icon"><i class="fa-solid fa-note-sticky"></i></div>
+            <div class="detail-content">
+              <span class="detail-label">Notes</span>
+              <span class="detail-value" id="viewNotes">No notes provided</span>
+            </div>
+          </div>
+
+          <div class="view-detail-item">
+            <div class="detail-icon"><i class="fa-solid fa-calendar-days"></i></div>
+            <div class="detail-content">
+              <span class="detail-label">Added On</span>
+              <span class="detail-value" id="viewCreated">Jan 1, 2026</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer view-modal-footer">
+          <button class="btn btn-danger-outline" id="viewDeleteBtn">
+            <i class="fa-solid fa-trash"></i> Delete
+          </button>
+          <button class="btn btn-primary" id="viewEditBtn">
+            <i class="fa-solid fa-pen-to-square"></i> Edit Contact
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Delete Confirmation -->
+  <div class="modal-overlay hidden" id="deleteModal">
+    <div class="modal-card modal-delete-card">
+      <div class="delete-icon-wrapper">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3>Delete Contact?</h3>
+      <p>Are you sure you want to delete <strong id="deleteContactName">this contact</strong>? This action cannot be undone.</p>
+      
+      <div class="modal-footer justify-center">
+        <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+        <button class="btn btn-danger" id="confirmDeleteBtn">
+          <i class="fa-solid fa-trash"></i> Yes, Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -29,26 +29,30 @@ Features an intuitive single-page interface with search, category filtering, fav
 
 ```text
 contact-management/
-├── data/                    # Local data files
+├── css/
+│   └── styles.css           # App styling & CSS variables
+├── js/
+│   └── app.js               # Frontend interactive controller & API fetches
+├── index.html               # Main website entry point (served directly on GitHub Pages)
+├── .nojekyll                # Disables Jekyll processing for clean GitHub Pages hosting
+├── public/                  # Static assets directory for local Express server
+│   ├── css/
+│   │   └── styles.css
+│   ├── js/
+│   │   └── app.js
+│   └── index.html
 ├── models/
 │   └── Contact.js           # Mongoose Contact Schema & Virtuals
-├── public/                  # Frontend static assets
-│   ├── css/
-│   │   └── styles.css       # App styling & CSS variables
-│   ├── js/
-│   │   └── app.js           # Frontend interactive controller & API fetches
-│   └── index.html           # Main Single Page Application (SPA) view
 ├── .github/
 │   └── workflows/
-│       └── ci.yml           # GitHub Actions CI workflow
+│       ├── ci.yml           # GitHub Actions CI workflow
+│       └── github-pages.yml # GitHub Actions workflow for Pages deployment
 ├── .env                     # Local environment config (git-ignored)
 ├── .env.example             # Template for required environment variables
 ├── .gitignore               # Ignored files (node_modules, .env, etc.)
 ├── db.js                    # MongoDB connection & initial sample data seeder
 ├── package.json             # NPM package dependencies & scripts
-├── render.yaml              # Render platform deployment config
 ├── server.js                # Main Express REST API server entrypoint
-├── vercel.json              # Vercel serverless deployment config
 └── README.md                # Project documentation
 ```
 
@@ -56,7 +60,7 @@ contact-management/
 
 ## ⚙️ Prerequisites
 
-Before running the project locally or deploying, ensure you have:
+Before running the project locally, ensure you have:
 
 - [Node.js](https://nodejs.org/) (v18.0.0 or higher)
 - [npm](https://www.npmjs.com/) (installed with Node.js)
@@ -105,43 +109,33 @@ Before running the project locally or deploying, ensure you have:
 
 ---
 
-## ☁️ Deployment Guide
+## 🌐 Hosting on GitHub Pages
 
-### Option 1: Deploy on Render (Recommended)
+The repository is structured so that when hosted on GitHub Pages, the website opens directly at your GitHub Pages link (no README file opened).
 
-1. Push your repository to **GitHub**.
-2. Go to [Render Dashboard](https://dashboard.render.com/) and click **New > Web Service**.
-3. Connect your GitHub repository.
-4. Set the following details:
-   - **Environment:** `Node`
-   - **Build Command:** `npm install`
-   - **Start Command:** `npm start`
-5. Under **Environment Variables**, add:
-   - `MONGODB_URI`: Your MongoDB Atlas Connection String (e.g., `mongodb+srv://<user>:<password>@cluster.mongodb.net/contact_management?retryWrites=true&w=majority`)
-6. Click **Create Web Service**.
+### Steps to Host on GitHub Pages:
 
----
+1. Push your changes to your **GitHub** repository:
+   ```bash
+   git add .
+   git commit -m "Configure GitHub Pages hosting and clean up unwanted deployment files"
+   git push origin main
+   ```
 
-### Option 2: Deploy on Vercel
+2. Go to your repository on GitHub.
+3. Click on **Settings** (top navigation tab) > **Pages** (under "Code and automation" in the left sidebar).
+4. Under **Build and deployment**:
+   - **Source**: Select **Deploy from a branch** (default)
+   - **Branch**: Select `main` (or `master`) and folder `/(root)`
+   - Click **Save**.
+5. Wait about 30–60 seconds for GitHub Pages to complete.
+6. Open your GitHub Pages link (`https://<username>.github.io/<repo-name>/`) — the ContactHub website will load directly!
 
-1. Push your repository to **GitHub**.
-2. Import the project into [Vercel](https://vercel.com/).
-3. Add environment variable `MONGODB_URI` under **Settings > Environment Variables**.
-4. Deploy! Vercel will automatically use `vercel.json` and build the serverless app.
-
-### Option 3: Publish the frontend on GitHub Pages
-
-The included `.github/workflows/github-pages.yml` workflow publishes the `public/` folder whenever changes are pushed to `main` or `master`.
-
-1. Push the repository to GitHub.
-2. In the repository, open **Settings > Pages** and set the source to **GitHub Actions**.
-3. Open the **Actions** tab and wait for **Deploy static site to GitHub Pages** to finish. The published URL will appear in the workflow run and under **Settings > Pages**.
-
-GitHub Pages hosts only the frontend, so this version saves contacts in the current browser's local storage. Contacts are not shared between visitors or devices, and clearing that browser's site data removes them. Use the Render or Vercel deployment above with MongoDB when you need shared, persistent contacts backed by the API.
+*(Note: The static site on GitHub Pages runs fully in the browser and safely stores your contacts in your browser's Local Storage, including full search, category filters, and CSV/JSON export.)*
 
 ---
 
-## 📡 API Reference
+## 📡 API Reference (For local Express / MongoDB server)
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
